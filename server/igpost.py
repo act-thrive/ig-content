@@ -242,9 +242,9 @@ def main():
             add_line("failed_ids.txt", it["id"])
             n = fail_counts.get(it["id"], 0) + 1
             log(f"{it['id']} の投稿に失敗（{n}回目）: {e}")
-            if n == 1 or n == 3:
-                notify(cfg, f"❌ Instagram：{it['id']}（{'リール' if it['type'] == 'reel' else '投稿'}）の投稿に失敗しました"
-                            f"{'（3回失敗したのであきらめます）' if n == 3 else '（次の時間にもう一度試します）'}。\n原因：{short_error(e)}")
+            if n == 3:
+                notify(cfg, f"❌ Instagram：{it['id']}（{'リール' if it['type'] == 'reel' else '投稿'}）が3回続けて投稿できませんでした。"
+                            f"\n原因：{short_error(e)}\nClaudeに確認を頼んでください。")
     low_stock_alert(cfg, items, now)
     cleanup(cfg, items)
 

@@ -20,6 +20,20 @@ MAX_PER_RUN = 2          # 1回の実行で投稿する最大数
 KEEP_DAYS = 14           # 投稿済み素材をサーバーに残す日数
 
 
+def parse_at(s):
+    """'2026-11-25T07:55:00+09:00' を日本時間の日時に（古いPythonでも動くように自前で変換）"""
+    s = s.strip()
+    base = datetime.datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
+    rest = s[19:]
+    if rest in ("", "Z"):
+        tz = JST if rest == "" else datetime.timezone.utc
+    else:
+        sign = -1 if rest[0] == "-" else 1
+        hh, mm = rest[1:].split(":")
+        tz = datetime.timezone(sign * datetime.timedelta(hours=int(hh), minutes=int(mm)))
+    return base.replace(tzinfo=tz)
+
+
 def log(msg):
     line = f"[{datetime.datetime.now(JST):%Y-%m-%d %H:%M:%S}] {msg}"
     print(line)
@@ -167,7 +181,7 @@ def cleanup(cfg, items):
     if not os.path.isdir(mdir):
         return
     limit = datetime.datetime.now(JST) - datetime.timedelta(days=KEEP_DAYS)
-    ats = {it["id"]: datetime.datetime.fromisoformat(it["at"]) for it in items}
+    ats = {it["id"]: parse_at(it["at"]) for it in items}
     for name in os.listdir(mdir):
         at = ats.get(name)
         if at is None or at < limit:
@@ -177,10 +191,10 @@ def cleanup(cfg, items):
 
 
 def low_stock_alert(cfg, items, now):
-    future = [it for it in items if datetime.datetime.fromisoformat(it["at"]) > now]
+    future = [it for it in items if parse_at(it["at"]) > now]
     days_left = 0
     if future:
-        days_left = (datetime.datetime.fromisoformat(future[-1]["at"]) - now).total_seconds() / 86400
+        days_left = (parse_at(future[-1]["at"]) - now).total_seconds() / 86400
     if days_left < 2:
         stamp = now.strftime("%Y-%m-%d")
         if stamp not in read_set("alert_days.txt"):
@@ -228,7 +242,7 @@ def main():
     for it in items:
         if done >= MAX_PER_RUN:
             break
-        at = datetime.datetime.fromisoformat(it["at"])
+        at = parse_at(it["at"])
         if it["id"] in posted or at > now or now - at > datetime.timedelta(hours=MAX_LATE_HOURS):
             continue
         if fail_counts.get(it["id"], 0) >= 3:
